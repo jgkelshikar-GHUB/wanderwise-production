@@ -909,25 +909,35 @@ const ACTS=[
 ];
 
 /* ══ AI ══ */
-// Routes through /api/chat — API key stays secure on Vercel server
+// WANDERWISE AI CONFIGURATION
+// After deploying, set your Cloudflare Worker URL below
+// Instructions: see SETUP-AI.txt included in the ZIP
+const AI_PROXY = 'https://wanderwise-ai.jgkelshikar.workers.dev';
+
+const SYS = `You are WanderWise AI — a travel assistant for Indian travellers. Always quote prices in INR (₹). Give practical, specific advice. Mention vegetarian food options. Flag visa requirements for Indian passport holders. Be warm and encouraging. Keep answers well-structured.`;
+
 let hist=[];
 
 async function callAI(msg,onOk,onErr){
   const msgs=[...hist,{role:'user',content:msg}];
+  // Check if proxy is configured
+  if(AI_PROXY.includes('YOUR-SUBDOMAIN')){
+    onErr('AI not configured yet. Please follow the SETUP-AI.txt instructions to connect your API key.');
+    return;
+  }
   try{
-    const r=await fetch('/api/chat',{
+    const r=await fetch(AI_PROXY,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({messages:msgs.slice(-10),max_tokens:1000})
+      body:JSON.stringify({messages:msgs.slice(-10),max_tokens:1000,system:SYS})
     });
     let d;
-    try{d=await r.json();}catch(e){onErr&&onErr('Server returned invalid response. Please try again.');return;}
+    try{d=await r.json();}catch(e){onErr&&onErr('Server error — please try again.');return;}
     if(!r.ok||d.error){onErr&&onErr(d.error||'Error '+r.status);return;}
-    if(!d.text){onErr&&onErr('Empty response from AI. Please try again.');return;}
+    if(!d.text){onErr&&onErr('Empty response — please try again.');return;}
     onOk(d.text);
   }catch(e){
-    if(e.message.includes('fetch')){onErr&&onErr('Could not reach AI server. Check your internet connection.');}
-    else{onErr&&onErr(e.message||'Unexpected error. Please try again.');}
+    onErr&&onErr('Connection error: '+( e.message||'please try again'));
   }
 }
 
